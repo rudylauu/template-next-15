@@ -1,0 +1,21 @@
+{
+  "name": "create-template-next-15",
+  "version": "1.0.0",
+  "private": false,
+  "type": "module",
+  "description": "CLI to scaffold a new project from template-next-15",
+  "bin": {
+    "create-template-next-15": "bin/cli.js"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepublishOnly": "npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
