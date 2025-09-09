@@ -1,6 +1,6 @@
 {
   "name": "create-template-next-15",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": false,
   "type": "module",
   "description": "CLI to scaffold a new project from template-next-15",
