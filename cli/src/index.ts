@@ -86,17 +86,42 @@ async function prepareTargetDir(projectName: string, force: boolean) {
 
 async function copyTemplateContents(templateRoot: string, targetDir: string) {
   const entries = await readdir(templateRoot, { withFileTypes: true });
+  
+  // Lista de archivos/carpetas a excluir
+  const excludeList = [
+    "node_modules",
+    ".git", 
+    ".next",
+    "cli",
+    "dist",
+    "package-lock.json",
+    ".DS_Store",
+    "Thumbs.db",
+    "*.log"
+  ];
+  
   for (const entry of entries) {
-    // Excluir archivos/carpetas que no queremos copiar
-    if (entry.name === "node_modules" || 
-        entry.name === ".git" || 
-        entry.name === ".next" || 
-        entry.name === "cli" ||
-        entry.name === "dist" ||
-        entry.name === "package-lock.json") {
+    // Verificar si el archivo/carpeta debe ser excluido
+    if (excludeList.includes(entry.name)) {
+      console.log(`Excluyendo: ${entry.name}`);
       continue;
     }
-    await cp(path.join(templateRoot, entry.name), path.join(targetDir, entry.name), { recursive: true });
+    
+    // Verificar si es un archivo de log
+    if (entry.name.endsWith('.log')) {
+      console.log(`Excluyendo archivo de log: ${entry.name}`);
+      continue;
+    }
+    
+    const sourcePath = path.join(templateRoot, entry.name);
+    const targetPath = path.join(targetDir, entry.name);
+    
+    try {
+      await cp(sourcePath, targetPath, { recursive: true });
+      console.log(`Copiado: ${entry.name}`);
+    } catch (error) {
+      console.warn(`Error copiando ${entry.name}:`, error);
+    }
   }
 }
 
@@ -107,16 +132,19 @@ async function cloneTemplateToTemp(repo: string, branch: string): Promise<string
   // Clone shallow
   await runCommand("git", ["clone", "--depth", "1", "--branch", branch, repo, tmpBase], process.cwd());
   
-  // Si el clone coloca contenido en una subcarpeta (nombre del repo), detectar y retornar esa ruta
+  // Detectar la estructura del repositorio clonado
   const items = await readdir(tmpBase, { withFileTypes: true });
+  console.log(`Contenido del repositorio clonado:`, items.map(i => i.name));
+  
+  // Si hay solo una carpeta (nombre del repo), usar esa carpeta
   if (items.length === 1 && items[0].isDirectory()) {
-    // Algunos proveedores git clonan en tmpBase directamente; si no, manejar directorio anidado
-    const maybeNested = path.join(tmpBase, items[0].name);
-    try {
-      const nestedItems = await readdir(maybeNested);
-      if (nestedItems.length >= 0) return maybeNested;
-    } catch {}
+    const repoDir = path.join(tmpBase, items[0].name);
+    console.log(`Usando directorio del repositorio: ${repoDir}`);
+    return repoDir;
   }
+  
+  // Si hay múltiples archivos/carpetas, usar el directorio raíz
+  console.log(`Usando directorio raíz del clon: ${tmpBase}`);
   return tmpBase;
 }
 
@@ -131,9 +159,15 @@ async function main() {
   // Limpiar carpeta temporal
   await rm(clonedPath, { recursive: true, force: true });
   
-  // Borrar carpeta .git si quedó dentro del target por alguna razón (defensa adicional)
-  const gitDir = path.join(targetDir, ".git");
-  if (existsSync(gitDir)) await rm(gitDir, { recursive: true, force: true });
+  // Verificaciones adicionales de limpieza
+  const cleanupItems = [".git", "cli", "node_modules", ".next"];
+  for (const item of cleanupItems) {
+    const itemPath = path.join(targetDir, item);
+    if (existsSync(itemPath)) {
+      console.log(`Limpiando: ${item}`);
+      await rm(itemPath, { recursive: true, force: true });
+    }
+  }
 
   // Ajustar package.json name
   const pkgPath = path.join(targetDir, "package.json");
